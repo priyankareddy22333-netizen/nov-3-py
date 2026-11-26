@@ -1,0 +1,721 @@
+
+from flask import Flask, render_template_string
+
+app = Flask(__name__)
+
+HTML = r"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DINO RUNNER | The Last Survivor</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #080b12;
+    color: white;
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.game-container {
+    width: 95%;
+    max-width: 1250px;
+    background: #101722;
+    border: 1px solid #283747;
+    border-radius: 18px;
+    padding: 25px;
+    box-shadow: 0 0 70px #ff6b1620;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    gap: 15px;
+}
+
+.logo {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: 3px;
+}
+
+.logo span {
+    color: #ff792d;
+}
+
+.status {
+    color: #83e9a2;
+    font-size: 12px;
+    letter-spacing: 2px;
+}
+
+.hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 15px;
+}
+
+.hero h1 {
+    font-size: clamp(25px, 4vw, 42px);
+    letter-spacing: 2px;
+}
+
+.hero h1 span {
+    color: #ff792d;
+}
+
+.hero p {
+    color: #8998aa;
+    font-size: 13px;
+    margin-top: 8px;
+    letter-spacing: 2px;
+}
+
+.scoreboard {
+    display: flex;
+    gap: 12px;
+}
+
+.score-box {
+    background: #192431;
+    border: 1px solid #344354;
+    padding: 12px 20px;
+    border-radius: 10px;
+    min-width: 100px;
+    text-align: center;
+}
+
+.score-box small {
+    color: #8b9bad;
+    font-size: 10px;
+    letter-spacing: 2px;
+}
+
+.score-box h2 {
+    margin-top: 5px;
+    color: #ff873d;
+    font-size: 25px;
+}
+
+.canvas-wrapper {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid #5b4435;
+    background: #171b2a;
+    box-shadow: 0 0 35px #ff702020;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 5;
+}
+
+.overlay {
+    position: absolute;
+    inset: 0;
+    background: #070b12b9;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 15px;
+    backdrop-filter: blur(3px);
+}
+
+.overlay h2 {
+    font-size: clamp(28px, 5vw, 55px);
+    letter-spacing: 4px;
+    color: #ff873d;
+    text-shadow: 0 0 25px #ff7020;
+}
+
+.overlay p {
+    color: #d2d8e0;
+    margin: 15px 0 25px;
+    font-size: 14px;
+}
+
+button {
+    background: linear-gradient(135deg, #ff9b43, #ed4d20);
+    border: none;
+    padding: 14px 35px;
+    border-radius: 7px;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    cursor: pointer;
+    box-shadow: 0 0 25px #ff712b60;
+    transition: .2s;
+}
+
+button:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 35px #ff712b;
+}
+
+.bottom {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 20px;
+    color: #8291a2;
+    font-size: 12px;
+}
+
+.key {
+    color: #ff873d;
+    font-weight: bold;
+}
+
+@media(max-width: 650px) {
+    .game-container { padding: 13px; }
+    .topbar { align-items: flex-start; }
+    .hero { flex-direction: column; align-items: flex-start; }
+    .scoreboard { width: 100%; }
+    .score-box { flex: 1; }
+    .logo { font-size: 19px; }
+    canvas { aspect-ratio: 16 / 8; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="game-container">
+
+    <div class="topbar">
+        <div class="logo">DINO<span>RUNNER</span></div>
+        <div class="status">● SYSTEM ONLINE</div>
+    </div>
+
+    <div class="hero">
+        <div>
+            <h1>THE LAST <span>SURVIVOR</span></h1>
+            <p>RUN • JUMP • SURVIVE • DOMINATE</p>
+        </div>
+
+        <div class="scoreboard">
+            <div class="score-box">
+                <small>SCORE</small>
+                <h2 id="score">00000</h2>
+            </div>
+            <div class="score-box">
+                <small>BEST</small>
+                <h2 id="best">00000</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="1200" height="375"></canvas>
+
+        <div class="overlay" id="overlay">
+            <h2 id="overlayTitle">SURVIVE THE WILD</h2>
+            <p id="overlayText">
+                The world has fallen. Only the strongest survive.
+                <br>Press SPACE to jump.
+            </p>
+            <button onclick="startGame()">START MISSION</button>
+        </div>
+    </div>
+
+    <div class="bottom">
+        <div>JUMP: <span class="key">SPACE / ↑</span></div>
+        <div>RESTART: <span class="key">ENTER</span></div>
+        <div>© DINO RUNNER 2026</div>
+    </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const W = canvas.width;
+const H = canvas.height;
+const ground = 310;
+
+let running = false;
+let score = 0;
+let speed = 6;
+let frame = 0;
+let obstacles = [];
+let particles = [];
+let clouds = [];
+
+let best = Number(localStorage.getItem("dinoBest") || 0);
+
+document.getElementById("best").textContent =
+    String(best).padStart(5, "0");
+
+let dino = {
+    x: 115,
+    y: ground - 65,
+    w: 65,
+    h: 65,
+    vy: 0,
+    jumping: false
+};
+
+function createClouds() {
+    clouds = [];
+
+    for(let i = 0; i < 8; i++) {
+        clouds.push({
+            x: Math.random() * W,
+            y: 35 + Math.random() * 120,
+            size: 20 + Math.random() * 30
+        });
+    }
+}
+
+function drawBackground() {
+
+    let sky = ctx.createLinearGradient(0, 0, 0, H);
+
+    sky.addColorStop(0, "#10182d");
+    sky.addColorStop(.55, "#693d46");
+    sky.addColorStop(1, "#f17b3a");
+
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sun
+
+    let sun = ctx.createRadialGradient(
+        850, 125, 10,
+        850, 125, 120
+    );
+
+    sun.addColorStop(0, "#ffcf83");
+    sun.addColorStop(.3, "#ff8a48");
+    sun.addColorStop(1, "#ff6b2900");
+
+    ctx.fillStyle = sun;
+    ctx.beginPath();
+    ctx.arc(850, 125, 120, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mountains
+
+    drawMountain(0, 230, 250, "#292b42");
+    drawMountain(350, 250, 220, "#333048");
+    drawMountain(700, 230, 280, "#28273d");
+    drawMountain(1000, 245, 250, "#343044");
+
+    // Clouds
+
+    clouds.forEach(c => {
+        ctx.fillStyle = "#ffffff15";
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y, c.size, 10, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        if(running) {
+            c.x -= speed * .15;
+            if(c.x < -60) c.x = W + 60;
+        }
+    });
+
+    // Distant landscape
+
+    ctx.fillStyle = "#272b3a";
+    ctx.fillRect(0, 270, W, 50);
+
+    // Ground
+
+    ctx.fillStyle = "#151923";
+    ctx.fillRect(0, ground, W, H-ground);
+
+    ctx.fillStyle = "#ff873d";
+    ctx.fillRect(0, ground, W, 3);
+
+    // Moving ground marks
+
+    ctx.fillStyle = "#55515a";
+
+    for(let i = 0; i < 25; i++) {
+        let x = (i * 65 - frame * speed * .8) % W;
+        if(x < 0) x += W;
+
+        ctx.fillRect(x, ground + 25, 20, 2);
+    }
+}
+
+function drawMountain(x, y, width, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width*.5, y-110);
+    ctx.lineTo(x + width, y);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawDino() {
+
+    let x = dino.x;
+    let y = dino.y;
+
+    ctx.save();
+
+    // Tail
+
+    ctx.fillStyle = "#72c66b";
+    ctx.beginPath();
+    ctx.moveTo(x+12, y+43);
+    ctx.lineTo(x-12, y+56);
+    ctx.lineTo(x+14, y+55);
+    ctx.closePath();
+    ctx.fill();
+
+    // Body
+
+    ctx.fillStyle = "#83d978";
+    ctx.beginPath();
+    ctx.roundRect(x+5, y+22, 43, 36, 10);
+    ctx.fill();
+
+    // Head
+
+    ctx.fillStyle = "#9bea7d";
+    ctx.beginPath();
+    ctx.roundRect(x+28, y+2, 39, 34, 9);
+    ctx.fill();
+
+    // Jaw
+
+    ctx.fillStyle = "#83d978";
+    ctx.fillRect(x+42, y+28, 23, 9);
+
+    // Eye
+
+    ctx.fillStyle = "#17232a";
+    ctx.beginPath();
+    ctx.arc(x+54, y+13, 3, 0, Math.PI*2);
+    ctx.fill();
+
+    // Legs animation
+
+    let leg = Math.sin(frame*.3)*7;
+
+    ctx.strokeStyle = "#83d978";
+    ctx.lineWidth = 9;
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+    ctx.moveTo(x+17, y+51);
+    ctx.lineTo(x+17+leg, y+64);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x+39, y+51);
+    ctx.lineTo(x+39-leg, y+64);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function drawCactus(o) {
+
+    ctx.save();
+    ctx.fillStyle = "#69b76d";
+
+    let x = o.x;
+    let y = ground - o.h;
+
+    ctx.fillRect(x+12, y, 14, o.h);
+
+    ctx.fillRect(x, y+18, 12, 22);
+    ctx.fillRect(x-2, y+15, 13, 8);
+
+    ctx.fillRect(x+26, y+27, 12, 23);
+    ctx.fillRect(x+26, y+24, 12, 8);
+
+    ctx.restore();
+}
+
+function drawBird(o) {
+
+    ctx.strokeStyle = "#252b3d";
+    ctx.lineWidth = 5;
+
+    let wing = Math.sin(frame*.2)*10;
+
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(o.x+17, o.y-wing);
+    ctx.lineTo(o.x+34, o.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(o.x+34, o.y);
+    ctx.lineTo(o.x+50, o.y-wing);
+    ctx.lineTo(o.x+65, o.y);
+    ctx.stroke();
+}
+
+function jump() {
+
+    if(!running) return;
+
+    if(!dino.jumping) {
+        dino.vy = -15;
+        dino.jumping = true;
+    }
+}
+
+function spawnObstacle() {
+
+    let type = Math.random() > .25 ? "cactus" : "bird";
+
+    if(type === "cactus") {
+        obstacles.push({
+            type,
+            x: W+30,
+            h: 35 + Math.random()*25,
+            w: 38
+        });
+    } else {
+        obstacles.push({
+            type,
+            x: W+30,
+            y: 205 + Math.random()*35,
+            w: 65,
+            h: 30
+        });
+    }
+}
+
+function update() {
+
+    frame++;
+
+    if(!running) return;
+
+    score += 0.12;
+
+    speed = Math.min(15, 6 + score/180);
+
+    document.getElementById("score").textContent =
+        String(Math.floor(score)).padStart(5, "0");
+
+    // Gravity
+
+    dino.y += dino.vy;
+    dino.vy += .65;
+
+    if(dino.y >= ground-65) {
+        dino.y = ground-65;
+        dino.vy = 0;
+        dino.jumping = false;
+    }
+
+    // Obstacles
+
+    if(frame % Math.max(45, Math.floor(95-speed*2)) === 0) {
+        spawnObstacle();
+    }
+
+    obstacles.forEach(o => {
+        o.x -= speed;
+    });
+
+    obstacles = obstacles.filter(o => o.x > -100);
+
+    // Collision detection
+
+    for(let o of obstacles) {
+
+        let ox = o.x;
+        let oy = o.type === "cactus" ? ground-o.h : o.y;
+        let ow = o.w;
+        let oh = o.type === "cactus" ? o.h : 30;
+
+        let dx = dino.x + 13;
+        let dy = dino.y + 10;
+        let dw = 43;
+        let dh = 50;
+
+        if(
+            dx+dw > ox+5 &&
+            dx < ox+ow-5 &&
+            dy+dh > oy+5 &&
+            dy < oy+oh
+        ) {
+            gameOver();
+            break;
+        }
+    }
+}
+
+function draw() {
+
+    ctx.clearRect(0, 0, W, H);
+
+    drawBackground();
+
+    obstacles.forEach(o => {
+        if(o.type === "cactus") drawCactus(o);
+        else drawBird(o);
+    });
+
+    drawDino();
+
+    // Atmospheric particles
+
+    if(running && frame % 4 === 0) {
+        particles.push({
+            x: dino.x,
+            y: ground-5,
+            life: 25,
+            size: Math.random()*4+1
+        });
+    }
+
+    particles.forEach(p => {
+        ctx.fillStyle = "#ffc28a";
+        ctx.globalAlpha = p.life/25;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.fill();
+
+        p.x -= 2;
+        p.y -= .5;
+        p.life--;
+    });
+
+    ctx.globalAlpha = 1;
+
+    particles = particles.filter(p => p.life > 0);
+
+    // Cinematic vignette
+
+    let vignette = ctx.createRadialGradient(
+        W/2, H/2, 100,
+        W/2, H/2, 650
+    );
+
+    vignette.addColorStop(0, "transparent");
+    vignette.addColorStop(1, "#05081288");
+
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
+}
+
+function loop() {
+
+    update();
+    draw();
+
+    requestAnimationFrame(loop);
+}
+
+function startGame() {
+
+    score = 0;
+    speed = 6;
+    frame = 0;
+
+    obstacles = [];
+    particles = [];
+
+    dino.y = ground-65;
+    dino.vy = 0;
+    dino.jumping = false;
+
+    running = true;
+
+    document.getElementById("overlay").style.display = "none";
+}
+
+function gameOver() {
+
+    running = false;
+
+    let finalScore = Math.floor(score);
+
+    if(finalScore > best) {
+        best = finalScore;
+        localStorage.setItem("dinoBest", best);
+    }
+
+    document.getElementById("best").textContent =
+        String(best).padStart(5, "0");
+
+    document.getElementById("overlayTitle").textContent =
+        "MISSION FAILED";
+
+    document.getElementById("overlayText").innerHTML =
+        "YOUR SCORE: " + finalScore +
+        "<br>THE WILDERNESS CLAIMED ANOTHER SURVIVOR.";
+
+    document.querySelector(".overlay button").textContent =
+        "TRY AGAIN";
+
+    document.getElementById("overlay").style.display = "flex";
+}
+
+// Keyboard controls
+
+document.addEventListener("keydown", e => {
+
+    if(e.code === "Space" || e.code === "ArrowUp") {
+        e.preventDefault();
+
+        if(!running) startGame();
+        else jump();
+    }
+
+    if(e.code === "Enter" && !running) {
+        startGame();
+    }
+});
+
+// Mobile controls
+
+canvas.addEventListener("pointerdown", () => {
+
+    if(!running) startGame();
+    else jump();
+
+});
+
+createClouds();
+loop();
+
+</script>
+
+</body>
+</html>
+"""
+
+@app.route("/")
+def home():
+    return render_template_string(HTML)
+
+if __name__ == "__main__":
+    app.run(debug=True)
